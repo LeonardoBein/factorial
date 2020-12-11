@@ -5,107 +5,51 @@
  * array1 * array2 = array3 
 **/
 
-ArrayInt* multiply_array(ArrayInt array1, ArrayInt array2){
-    ArrayInt *array_larger = NULL;
-    ArrayInt *array_less = NULL;
-    ArrayInt *aux, *res;
+ArrayInt * multiply_array(ArrayInt array1, ArrayInt array2){
+    ArrayInt *res = NULL;
+    long int carry = 0;
 
-    aux = createArray();
+    int initial1 = 0, initial2 = 0;
+
+    if (array1.size > 1000){
+        initial1 = array1.size - 1000;
+    }
+
+    if (array2.size > 1000){
+        initial2 = array2.size - 1000;
+    }    
+
     res = createArray();
-
-    if (array1.size > array2.size){ 
-        array_larger = &array1;
-        array_less = &array2;
-    }
-    else{ 
-        array_larger = &array2;
-        array_less = &array1; 
-    }
-
-    // printf("Pequeno: \t");
-    // array_less->print(array_less);
-    // printf("Grande: \t");
-    // array_larger->print(array_larger);
     
-    res->resize(res, 1);
-
-    for (int i = 0; i < array_less->size; i++)
-    {
-        aux->clear(aux);
-        multiply(array_less->data[i]*(int)pow(10, i), array_larger, aux);
-        // res->print(aux);
-        res = sum_array(*res, *aux);
-    }
-    return res;
-}
-
-/**
- * Função soma dois array e retorna o resultado
- * array1 + array2 = array3 
-**/
-ArrayInt* sum_array(ArrayInt array1, ArrayInt array2){
-    int size = 0;
-    int carry = 0;
-    ArrayInt array_larger, *res;
+    res->resize(res, array1.size + array2.size);
     
-    res = createArray();
-
-    
-    if (array1.size < array2.size){ 
-        size = array1.size;
-        array_larger = array2;
-    }
-    else{ 
-        size = array2.size;
-        array_larger = array1; 
-    }
-    
-    res->resize(res, array_larger.size);
-
-    for (int i = 0; i < res->size; i++)
-    {
-        res->data[i] = array_larger.data[i];
-    }
-    
-
-    for (int i = 0; i < size; i++)
-    {
-        int sum = array1.data[i] + array2.data[i] + carry;
-        res->data[i] = sum % 10;
-        
-        carry = sum/10;
-
-    }
-
-    while (carry) 
-    { 
-        if (res->size > size){
-            res->data[size++] += carry%10;
-        }else{
-            res->push(res, carry%10);
+    for (int i = initial2; i < array2.size; i++){
+        carry = 0;
+        for (int j = initial1; j < array1.size; j++){
+            res->data[j + i] += carry + (array1.data[j] * array2.data[i]);
+            carry = res->data[j + i] / 10;
+            res->data[j + i] = res->data[j + i] % 10;
         }
-        
-        carry = carry/10; 
-    } 
+        res->data[i+array1.size] = carry;
+    }
 
+    if (res->data[res->size-1] == 0) {
+        res->resize(res, res->size-1);
+    }
     return res;
-    
 }
 
 /**
- * Função multiplica um array por um numero e retorna o resultado
- * number * array2 = array3 
+ * Função multiplica um array por um numero e retorna o resultado (res)
+ *  
 **/
 void multiply(int x, ArrayInt *array, ArrayInt *res) { 
     int carry = 0;
     res->resize(res, array->size);
-    // array->print(res);
-    // printf("x %d", x);
+   
 
     for (int i=0; i < array->size; i++) { 
         int prod = array->data[i] * x + carry; 
-        // printf("prod: %d",prod);
-        // printf("prod%%10: %d",prod%10);
         res->data[i] = prod % 10;
         carry  = prod/10;     
     } 
@@ -114,7 +58,6 @@ void multiply(int x, ArrayInt *array, ArrayInt *res) {
         res->push(res, carry%10);
         carry = carry/10; 
     }
-    // array->print(res);
  
 } 
 

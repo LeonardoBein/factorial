@@ -1,5 +1,10 @@
 #include "calc.h"
 
+
+/**
+ * Função realiza o calculo do fatorial
+**/
+
 ArrayInt* factorial(int n, int initial){ 
 
     ArrayInt *res = createArray();
@@ -11,14 +16,4 @@ ArrayInt* factorial(int n, int initial){
         multiply(x, res, res);
     } 
     return res;
-}
-
-
-long double factorial_recursive(int n){
-	if (n <= 1){
-        return 1;
-    }
-	else{
-  	  return n*factorial_recursive(n-1);
-    }
 }

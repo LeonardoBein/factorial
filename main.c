@@ -1,13 +1,59 @@
 #include "calc.h"
 #include "process.h"
+#include <time.h>
+#include <string.h>
+
+// ###############################
+void my_process_factorial(Process *process);
+void* my_thread_factorial(void* arg);
+ArrayInt** distribute(int fatorialNumber, int processNumber);
+int process_main(int factorialNumber, int numberProcess);
+int thread_main(int factorialNumber, int numberProcess);
+// ###############################
 
 
-void my_process(Process *process){
+
+int main(int argc, char const *argv[]){
+    int factorialNumber = 0;
+    int error = 0;
+    int numberProcess = 0;
+    char* array_dumps = NULL;
+
+    if (argc < 4){
+        return -1;
+    }
+
+    factorialNumber = atoi(argv[2]);
+    numberProcess = atoi(argv[3]);
+
+    if (factorialNumber < 0){ return -1; }
+    if (numberProcess < 0){ return -1; }
+
+    if (strcmp("--thread", argv[1]) == 0){
+        error = thread_main(factorialNumber, numberProcess);
+    }else if (strcmp("--fork", argv[1]) == 0){
+        error = process_main(factorialNumber, numberProcess);
+    }else{
+        return -1;
+    }
+
+    return error;
+}
+
+
+
+
+
+/**
+ * Função a ser executado em paralelo (Process)
+**/
+void my_process_factorial(Process *process){
     char *array = NULL;
     int fatorialNumberInitial, fatorialNumberFinal;
 
-    fscanf(process->fp_input,"%d;%d", &fatorialNumberInitial, &fatorialNumberFinal);
-    fclose(process->fp_input);
+    read(process->fp_input, &fatorialNumberInitial, sizeof(int));
+    read(process->fp_input, &fatorialNumberFinal, sizeof(int));
+    close(process->fp_input);
     process->fp_input = 0;
     
 
@@ -22,24 +68,44 @@ void my_process(Process *process){
         fatorialNumberInitial = fatorialNumberFinal;
         fatorialNumberFinal = aux; 
     }
-    // printf("->%d;%d", fatorialNumberInitial, fatorialNumberFinal);
 
     ArrayInt *ptr_res = factorial(fatorialNumberFinal, fatorialNumberInitial);
-    // ptr_res->printNumber(ptr_res, 0);
-    // printf("\n");
-    array = ptr_res->dumps(ptr_res);
-
-    fprintf(process->fp_output, "%dB", ptr_res->size+1);
-
-    for (size_t i = 0; i < ptr_res->size+1; i++){
-        fprintf(process->fp_output, "%c", array[i]);
-    }
-    fprintf(process->fp_output, "\n");    
-    
-    fclose(process->fp_output);
+    write(process->fp_output, &ptr_res->size, sizeof(int));
+    write(process->fp_output, ptr_res->data, sizeof(int)*ptr_res->size);
+    close(process->fp_output);
     process->fp_output = 0;
 }
 
+/**
+ * Função a ser executado em paralelo (Thread)
+**/
+void* my_thread_factorial(void* arg){
+    Thread* thread = (Thread*)arg;
+    int fatorialNumberInitial, fatorialNumberFinal;
+
+    ArrayInt* input = (ArrayInt*)thread->input;
+
+    fatorialNumberInitial = input->data[0];
+    fatorialNumberFinal = input->data[1];
+
+    if (fatorialNumberInitial < 0){
+        fatorialNumberInitial = 1;
+    }
+    if (fatorialNumberFinal < 0){
+        fatorialNumberFinal = 1;
+    }
+    if (fatorialNumberFinal < fatorialNumberInitial){
+        int aux = fatorialNumberInitial;
+        fatorialNumberInitial = fatorialNumberFinal;
+        fatorialNumberFinal = aux; 
+    }
+
+    thread->output = (void *)factorial(fatorialNumberFinal, fatorialNumberInitial);
+}
+
+/**
+ * Função que distribui igualmente o trabalho dos n processos
+**/
 ArrayInt** distribute(int fatorialNumber, int processNumber){
     ArrayInt** array= NULL;
 
@@ -63,86 +129,100 @@ ArrayInt** distribute(int fatorialNumber, int processNumber){
     return array;
 }
 
-int main(int argc, char const *argv[]){
-    int fatorialNumber = 0;
-    int numberProcess = 0;
-    char* array_dumps = NULL;
+/**
+ * Função que criar, administra e espera o retorno dos Processos, unindo os retornos 
+ * em um resultado final. 
+**/
 
-    if (argc < 3){
-        return -1;
-    }
-
-    fatorialNumber = atoi(argv[1]);
-    numberProcess = atoi(argv[2]);
-
-    if (fatorialNumber < 0){ return -1; }
-    if (numberProcess < 0){ return -1; }
-
-    ArrayInt** load_balance = distribute(fatorialNumber, numberProcess);
-
+int process_main(int factorialNumber, int numberProcess){
+    ArrayInt** load_balance = distribute(factorialNumber, numberProcess);
+    clock_t start, end;
+    float runtime = 0;
     
+    start = clock();
     Process process[numberProcess];
     for (size_t i = 0; i < numberProcess; i++){
-        create_process(&process[i], my_process);
+        create_process(&process[i], my_process_factorial);
     }
 
     for (size_t i = 0; i < numberProcess; i++){
-        // printf("%d;%d ", load_balance[i]->data[0], load_balance[i]->data[1]);
-        fprintf(process[i].fp_input, "%d;%d", load_balance[i]->data[0], load_balance[i]->data[1]);
+        write(process[i].fp_input, &load_balance[i]->data[0], sizeof(int));
+        write(process[i].fp_input, &load_balance[i]->data[1], sizeof(int));
     }
 
     for (size_t i = 0; i < numberProcess; i++){
-        fclose(process[i].fp_input);
+        close(process[i].fp_input);
         process[i].fp_input = 0;
     }
 
     ArrayInt* array[numberProcess];
-    for (size_t i = 0; i < numberProcess; i++)
-    {
-        array[i] = createArray();
-    }
-    
-    char *buffer = NULL;
-    char c;
-    int sizeBuffer;
+    int size = 0;
     for (size_t i = 0; i < numberProcess; i++){
-        sizeBuffer = 0;
-        while ((c = fgetc(process[i].fp_output)) != 'B'){
-            printf("%c", c);
-            sizeBuffer++;
-        }
-        buffer = (char*)calloc(sizeBuffer, sizeof(char));
-        
-        fgets(buffer, sizeBuffer, process[i].fp_output);
-        array[i]->load(array[i], buffer);
-        
-        fclose(process[i].fp_output);
+        array[i] = createArray();
+        read(process[i].fp_output, &size, sizeof(int));
+        array[i]->resize(array[i], size);
+        read(process[i].fp_output, array[i]->data, sizeof(int)*size);
+        close(process[i].fp_output);
         process[i].fp_output = 0;
     }
+
+    wait_for_process(numberProcess, process);
+    
     
     ArrayInt *res = createArray();
 
     res->push(res, 1);
 
-    for (size_t i = 0; i < numberProcess; i++)
-    {   
-        // array[i]->print(array[i]);
+    for (size_t i = 0; i < numberProcess; i++){   
         res = multiply_array(*array[i], *res);
     }
-    
-    res->printNumber(res, 0);
+    end = clock();
+
+    // printf("runtime = %fs\n", (float)(end - start)/CLOCKS_PER_SEC);
+    printf("%d! = ", factorialNumber);
+    res->printNumber(res, 40);
     printf("\n");
-    // res->print(res);
-
-    wait_for_process(numberProcess, process);
-
-    // ArrayInt *ptr_res = factorial(fatorialNumber, 1);
-
-    // ptr_res->printNumber(ptr_res, 0);
-
+    
     return 0;
+
 }
 
+/**
+ * Função que criar, administra e espera o retorno das Threads, unindo os retornos 
+ * em um resultado final. 
+**/
 
+int thread_main(int factorialNumber, int numberProcess){
+    ArrayInt** load_balance = distribute(factorialNumber, numberProcess);
 
+    clock_t start, end;
+    float runtime = 0;
+    Thread threads[numberProcess];
+    start = clock();
+    for (size_t i = 0; i < numberProcess; i++){
+        threads[i].input = (void *)load_balance[i];
+        create_thread(&threads[i], my_thread_factorial, (void *)&threads[i]);
+    }
 
+    wait_for_threads(numberProcess, threads);
+    end = clock();
+    runtime = (float)(end - start)/CLOCKS_PER_SEC;
+    // printf("runtime1 = %fs\n", (float)(end - start)/CLOCKS_PER_SEC);
+    ArrayInt *res = createArray();
+
+    res->push(res, 1);
+
+    start = clock();
+    for (size_t i = 0; i < numberProcess; i++){   
+        res = multiply_array(*(ArrayInt *)threads[i].output, *res);
+    }
+    end = clock();
+    runtime += (float)(end - start)/CLOCKS_PER_SEC;
+    // printf("runtime_total = %fs\n", runtime);
+    printf("%d! = ", factorialNumber);
+    res->printNumber(res, 40);
+    printf("\n");
+    
+    
+    return 0;
+}

@@ -1,6 +1,28 @@
 #include "process.h"
 
 
+/**
+ * Função cria uma thread
+**/
+
+int create_thread(Thread* thread, void*(*function)(void* arg), void* args){
+    pthread_create(&thread->uuid, NULL, function, args);
+    return 0;
+}
+
+/**
+ * Função espera o termino das thread
+**/
+
+void wait_for_threads(size_t nthreads, Thread *threads){
+    for (size_t i = 0; i < nthreads; i++){
+        pthread_join(threads[i].uuid, NULL);
+    }
+}
+
+/**
+ * Função cria um novo processo (filho), usando o metodo fork.
+**/
 
 int create_process(Process* process, void(*function)(Process* process)){
     int pipe1[2];   /* From parent to child */
@@ -23,8 +45,8 @@ int create_process(Process* process, void(*function)(Process* process)){
     }
     else if (process->pid == 0)
     {
-        process->fp_input   = fdopen(pipe1[P_READ], "r");
-        process->fp_output = fdopen(pipe2[P_WRITE], "w");
+        process->fp_input  = pipe1[P_READ];
+        process->fp_output = pipe2[P_WRITE];
         close(pipe1[P_WRITE]);
         close(pipe2[P_READ]);
         /* Reads standard input from parent; writes standard output to parent */
@@ -32,13 +54,17 @@ int create_process(Process* process, void(*function)(Process* process)){
         exit(0);
     }
     else{
-        process->fp_input   = fdopen(pipe1[P_WRITE], "w");
-        process->fp_output = fdopen(pipe2[P_READ], "r");
+        process->fp_input  = pipe1[P_WRITE];
+        process->fp_output = pipe2[P_READ];
         close(pipe1[P_READ]);
         close(pipe2[P_WRITE]);
         return 0;
     }
 }
+
+/**
+ * Função espera o termino dos processos (filhos) iniciados
+**/
 
 void wait_for_process(size_t nprocess, Process *process){
     int pid;
