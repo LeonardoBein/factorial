@@ -24,7 +24,7 @@ typedef struct
 
 
 int create_thread(Thread* thread, void*(*function)(void* arg), void* args);
-void wait_for_threads(size_t nthreads, Thread *threads);
+void wait_for_threads(int nthreads, Thread *threads);
  
 int create_process(Process* process, void(*function)(Process* process));
-void wait_for_process(size_t nprocess, Process *process);
+void wait_for_process(int nprocess, Process *process);

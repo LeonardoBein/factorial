@@ -1,6 +1,5 @@
 #include "calc.h"
 #include "process.h"
-#include <time.h>
 #include <string.h>
 
 // ###############################
@@ -17,7 +16,6 @@ int main(int argc, char const *argv[]){
     int factorialNumber = 0;
     int error = 0;
     int numberProcess = 0;
-    char* array_dumps = NULL;
 
     if (argc < 4){
         return -1;
@@ -48,7 +46,6 @@ int main(int argc, char const *argv[]){
  * Função a ser executado em paralelo (Process)
 **/
 void my_process_factorial(Process *process){
-    char *array = NULL;
     int fatorialNumberInitial, fatorialNumberFinal;
 
     read(process->fp_input, &fatorialNumberInitial, sizeof(int));
@@ -101,6 +98,8 @@ void* my_thread_factorial(void* arg){
     }
 
     thread->output = (void *)factorial(fatorialNumberFinal, fatorialNumberInitial);
+
+    return NULL;
 }
 
 /**
@@ -114,7 +113,7 @@ ArrayInt** distribute(int fatorialNumber, int processNumber){
     int initial = 0;
     int step = fatorialNumber/processNumber;
     
-    for (size_t i = 0; i < processNumber; i++){
+    for (int i = 0; i < processNumber; i++){
         array[i] = createArray();
         array[i]->push(array[i], initial+1);
         
@@ -136,28 +135,29 @@ ArrayInt** distribute(int fatorialNumber, int processNumber){
 
 int process_main(int factorialNumber, int numberProcess){
     ArrayInt** load_balance = distribute(factorialNumber, numberProcess);
-    clock_t start, end;
-    float runtime = 0;
-    
-    start = clock();
+    int err = 0;
     Process process[numberProcess];
-    for (size_t i = 0; i < numberProcess; i++){
-        create_process(&process[i], my_process_factorial);
+    for (int i = 0; i < numberProcess; i++){
+        err = create_process(&process[i], my_process_factorial);
+        if (err != 0){
+            printf("Não foi possível criar processo\n");
+            return -1;
+        }
+        
     }
 
-    for (size_t i = 0; i < numberProcess; i++){
+    for (int i = 0; i < numberProcess; i++){
         write(process[i].fp_input, &load_balance[i]->data[0], sizeof(int));
         write(process[i].fp_input, &load_balance[i]->data[1], sizeof(int));
-    }
-
-    for (size_t i = 0; i < numberProcess; i++){
         close(process[i].fp_input);
         process[i].fp_input = 0;
     }
 
+    wait_for_process(numberProcess, process);
+
     ArrayInt* array[numberProcess];
     int size = 0;
-    for (size_t i = 0; i < numberProcess; i++){
+    for (int i = 0; i < numberProcess; i++){
         array[i] = createArray();
         read(process[i].fp_output, &size, sizeof(int));
         array[i]->resize(array[i], size);
@@ -165,26 +165,19 @@ int process_main(int factorialNumber, int numberProcess){
         close(process[i].fp_output);
         process[i].fp_output = 0;
     }
-
-    wait_for_process(numberProcess, process);
-    
     
     ArrayInt *res = createArray();
-
     res->push(res, 1);
 
-    for (size_t i = 0; i < numberProcess; i++){   
+    for (int i = 0; i < numberProcess; i++){   
         res = multiply_array(*array[i], *res);
     }
-    end = clock();
 
-    // printf("runtime = %fs\n", (float)(end - start)/CLOCKS_PER_SEC);
     printf("%d! = ", factorialNumber);
     res->printNumber(res, 40);
     printf("\n");
     
     return 0;
-
 }
 
 /**
@@ -194,35 +187,31 @@ int process_main(int factorialNumber, int numberProcess){
 
 int thread_main(int factorialNumber, int numberProcess){
     ArrayInt** load_balance = distribute(factorialNumber, numberProcess);
+    int err = 0;
 
-    clock_t start, end;
-    float runtime = 0;
     Thread threads[numberProcess];
-    start = clock();
-    for (size_t i = 0; i < numberProcess; i++){
+    for (int i = 0; i < numberProcess; i++){
         threads[i].input = (void *)load_balance[i];
-        create_thread(&threads[i], my_thread_factorial, (void *)&threads[i]);
+        err = create_thread(&threads[i], my_thread_factorial, (void *)&threads[i]);
+        if (err != 0){
+            printf("Não foi possível criar thread\n");
+            return -1;
+        }
+        
     }
 
     wait_for_threads(numberProcess, threads);
-    end = clock();
-    runtime = (float)(end - start)/CLOCKS_PER_SEC;
-    // printf("runtime1 = %fs\n", (float)(end - start)/CLOCKS_PER_SEC);
-    ArrayInt *res = createArray();
 
+    ArrayInt *res = createArray();
     res->push(res, 1);
 
-    start = clock();
-    for (size_t i = 0; i < numberProcess; i++){   
+    for (int i = 0; i < numberProcess; i++){   
         res = multiply_array(*(ArrayInt *)threads[i].output, *res);
     }
-    end = clock();
-    runtime += (float)(end - start)/CLOCKS_PER_SEC;
-    // printf("runtime_total = %fs\n", runtime);
+
     printf("%d! = ", factorialNumber);
     res->printNumber(res, 40);
     printf("\n");
-    
     
     return 0;
 }
