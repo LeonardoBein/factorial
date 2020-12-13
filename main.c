@@ -153,8 +153,6 @@ int process_main(int factorialNumber, int numberProcess){
         process[i].fp_input = 0;
     }
 
-    wait_for_process(numberProcess, process);
-
     ArrayInt* array[numberProcess];
     int size = 0;
     for (int i = 0; i < numberProcess; i++){
@@ -165,6 +163,8 @@ int process_main(int factorialNumber, int numberProcess){
         close(process[i].fp_output);
         process[i].fp_output = 0;
     }
+
+    wait_for_process(numberProcess, process);
     
     ArrayInt *res = createArray();
     res->push(res, 1);
