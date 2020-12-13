@@ -17,9 +17,7 @@ int main(int argc, char const *argv[]){
     int error = 0;
     int numberProcess = 0;
 
-    if (argc < 4){
-        return -1;
-    }
+    if (argc < 4){ return -1; }
 
     factorialNumber = atoi(argv[2]);
     numberProcess = atoi(argv[3]);

@@ -14,7 +14,7 @@ int create_thread(Thread* thread, void*(*function)(void* arg), void* args){
 **/
 
 void wait_for_threads(int nthreads, Thread *threads){
-    for (size_t i = 0; i < nthreads; i++){
+    for (int i = 0; i < nthreads; i++){
         pthread_join(threads[i].uuid, NULL);
     }
 }
@@ -71,16 +71,10 @@ void wait_for_process(int nprocess, Process *process){
 
     while ((pid = waitpid(-1, &status, 0)) != -1)
     {
-        for (size_t i = 0; i < nprocess; i++)
+        for (int i = 0; i < nprocess; i++)
         {
             if (pid == process[i].pid)
                 process[i].pid = -1;
         }
-    }
-
-    for (size_t i = 0; i < nprocess; i++)
-    {
-        if (process[i].pid != -1)
-            printf("Processo %d morreu sem ser rastreado\n", (int)process[i].pid);
     }
 }

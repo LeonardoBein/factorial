@@ -57,10 +57,10 @@ ArrayInt * multiply_array(ArrayInt array1, ArrayInt array2){
 }
 
 /**
- * Função multiplica um array por um numero e retorna o resultado (res)
+ * Função multiplica um array por um numero e retorna o resultado em (res)
  *  
 **/
-void multiply(int x, ArrayInt *array, ArrayInt *res) { 
+void multiply(int x, ArrayInt* array, ArrayInt* res) { 
     int carry = 0;
     res->resize(res, array->size);
    
